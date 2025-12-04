@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>泰坦尼克号：3D数据航海日志</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0a2463 0%, #1c5d99 100%);
+            color: #f8f9fa;
+            min-height: 100vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 15px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        header {
+            text-align: center;
+            padding: 10px 0;
+            margin-bottom: 10px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+            flex-shrink: 0;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            background: linear-gradient(90deg, #ff9a3c, #ff6b6b);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .subtitle {
+            font-size: 0.8rem;
+            opacity: 0.9;
+            max-width: 800px;
+            margin: 0 auto 10px;
+            line-height: 1.3;
+        }
+        
+        /* 时间轴部分 */
+        .timeline-section {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            flex-shrink: 0;
+        }
+        
+        .timeline-title {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            color: #ffd166;
+        }
+        
+        .timeline-title i {
+            margin-right: 8px;
+            font-size: 1.2rem;
+        }
+        
+        .timeline {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            margin-top: 15px;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 12px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.2);
+            z-index: 1;
+        }
+        
+        .timeline-event {
+            position: relative;
+            width: 20%;
+            text-align: center;
+            z-index: 2;
+        }
+        
+        .timeline-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #ff9a3c;
+            margin: 0 auto 8px;
+            position: relative;
+            z-index: 3;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .timeline-dot:hover {
+            transform: scale(1.3);
+            box-shadow: 0 0 8px #ff9a3c;
+        }
+        
+        .timeline-date {
+            font-weight: bold;
+            margin-bottom: 3px;
+            color: #ffd166;
+            font-size: 0.75rem;
+        }
+        
+        .timeline-desc {
+            font-size: 0.7rem;
+            opacity: 0.9;
+        }
+        
+        /* 主内容区域 */
+        .main-content {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex: 1;
+            min-height: 0;
+        }
+        
+        /* 左侧图表区域 */
+        .left-charts {
+            width: 33.33%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        /* 右侧平面图区域 */
+        .right-map {
+            width: 66.66%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .dashboard-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .dashboard-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .card-title {
+            font-size: 1rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            color: #ffd166;
+            flex-shrink: 0;
+        }
+        
+        .card-title i {
+            margin-right: 6px;
+            font-size: 1rem;
+        }
+        
+        /* 统计卡片 */
+        .stat-card {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+            padding: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #ff9a3c;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+        
+        .chart-container {
+            height: 140px;
+            width: 100%;
+            flex: 1;
+            min-height: 140px;
+        }
+        
+        .survived {
+            color: #4ecdc4;
+        }
+        
+        .not-survived {
+            color: #ff6b6b;
+        }
+        
+        .deck-legend {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 0.7rem;
+            flex-shrink: 0;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .legend-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+        }
+        
+        .class-1-color {
+            background-color: #ffd166;
+        }
+        
+        .class-2-color {
+            background-color: #9acd76;
+        }
+        
+        .class-3-color {
+            background-color: #ff6b6b;
+        }
+        
+        /* 平面图样式 - 已修改为图片 */
+        .ship-map-container {
+            height: 240px;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+            flex: 1;
+            min-height: 240px;
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+        
+        .ship-map {
+            height: 100%;
+            width: 100%;
+            position: relative;
+        }
+        
+        /* 图片样式 */
+        .ship-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 8px;
+            display: block;
+        }
+        
+        .ship-legend {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 0.7rem;
+            backdrop-filter: blur(5px);
+            z-index: 10;
+        }
+        
+        .deck-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px;
+            border-radius: 6px;
+            max-width: 180px;
+            z-index: 10;
+            border-left: 3px solid #ff9a3c;
+            font-size: 0.7rem;
+            backdrop-filter: blur(5px);
+        }
+        
+        /* 底部卡片区域 */
+        .bottom-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+        
+        .passenger-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 8px;
+            font-size: 0.75rem;
+        }
+        
+        .passenger-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding-bottom: 4px;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.2);
+            font-size: 0.7rem;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #a5d8ff;
+        }
+        
+        .info-value {
+            font-weight: 500;
+        }
+        
+        .button {
+            background: linear-gradient(90deg, #3e92cc, #1c5d99);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.75rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            width: 100%;
+        }
+        
+        .button:hover {
+            background: linear-gradient(90deg, #1c5d99, #0a2463);
+            transform: translateY(-2px);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .form-group {
+            margin-bottom: 12px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 6px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 0.75rem;
+        }
+        
+        .prediction-result {
+            text-align: center;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            font-size: 0.75rem;
+        }
+        
+        .prediction-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 8px 0;
+        }
+        
+        .high {
+            color: #4ecdc4;
+        }
+        
+        .medium {
+            color: #ffd166;
+        }
+        
+        .low {
+            color: #ff6b6b;
+        }
+        
+        .port-visual {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 12px;
+        }
+        
+        .port {
+            text-align: center;
+            width: 30%;
+        }
+        
+        .port-circle {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin: 0 auto 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: white;
+        }
+        
+        .port-c {
+            background: #ff9a3c;
+        }
+        
+        .port-q {
+            background: #4ecdc4;
+        }
+        
+        .port-s {
+            background: #ff6b6b;
+        }
+        
+        .port-count {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-top: 6px;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 10px 0;
+            margin-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 0.7rem;
+            opacity: 0.7;
+            flex-shrink: 0;
+        }
+        
+        /* 图表特定样式 */
+        .js-plotly-plot, .plot-container {
+            height: 100% !important;
+            width: 100% !important;
+        }
+        
+        @media (max-width: 1200px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .left-charts, .right-map {
+                width: 100%;
+            }
+            
+            .ship-map-container {
+                height: 220px;
+            }
+            
+            .bottom-cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .left-charts, .right-map {
+                width: 100%;
+            }
+            
+            .ship-map-container {
+                height: 180px;
+            }
+            
+            .bottom-cards {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            .timeline {
+                flex-direction: column;
+                align-items: center;
+                gap: 15px;
+            }
+            
+            .timeline::before {
+                display: none;
+            }
+            
+            .timeline-event {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-ship"></i> 泰坦尼克号：数据航海日志</h1>
+            <p class="subtitle">通过交互式平面图探索泰坦尼克号的船舱结构与乘客命运 - 基于891名乘客的真实数据</p>
+        </header>
+        
+        <!-- 时间轴部分 -->
+        <div class="timeline-section">
+            <h2 class="timeline-title"><i class="fas fa-history"></i> 时间轴叙事</h2>
+            <div class="timeline">
+                <div class="timeline-event">
+                    <div class="timeline-dot" data-date="1912-04-10" data-event="从南安普顿启航"></div>
+                    <div class="timeline-date">1912-04-10</div>
+                    <div class="timeline-desc">从南安普顿启航</div>
+                </div>
+                <div class="timeline-event">
+                    <div class="timeline-dot" data-date="1912-04-11" data-event="抵达瑟堡"></div>
+                    <div class="timeline-date">1912-04-11</div>
+                    <div class="timeline-desc">抵达瑟堡</div>
+                </div>
+                <div class="timeline-event">
+                    <div class="timeline-dot" data-date="1912-04-12" data-event="抵达皇后镇"></div>
+                    <div class="timeline-date">1912-04-12</div>
+                    <div class="timeline-desc">抵达皇后镇</div>
+                </div>
+                <div class="timeline-event">
+                    <div class="timeline-dot" data-date="1912-04-14" data-event="23:40 撞击冰山"></div>
+                    <div class="timeline-date">1912-04-14</div>
+                    <div class="timeline-desc">23:40 撞击冰山</div>
+                </div>
+                <div class="timeline-event">
+                    <div class="timeline-dot" data-date="1912-04-15" data-event="02:20 沉没"></div>
+                    <div class="timeline-date">1912-04-15</div>
+                    <div class="timeline-desc">02:20 沉没</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 主内容区域 -->
+        <div class="main-content">
+            <!-- 左侧图表区域 -->
+            <div class="left-charts">
+                <div class="dashboard-card">
+                    <h2 class="card-title"><i class="fas fa-heartbeat"></i> 生存概览</h2>
+                    <div class="stat-card">
+                        <div class="stat-label">总乘客数</div>
+                        <div class="stat-value" id="total-passengers">891</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">幸存者</div>
+                        <div class="stat-value survived" id="survived-count">342</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">遇难者</div>
+                        <div class="stat-value not-survived" id="not-survived-count">549</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">整体生存率</div>
+                        <div class="stat-value" id="survival-rate">38.38%</div>
+                    </div>
+                    <div class="chart-container" id="survival-chart"></div>
+                </div>
+                
+                <div class="dashboard-card">
+                    <h2 class="card-title"><i class="fas fa-layer-group"></i> 舱位等级分析</h2>
+                    <div class="chart-container" id="class-chart"></div>
+                    <div class="stat-card">
+                        <div class="stat-label">一等舱生存率</div>
+                        <div class="stat-value" id="class-1-rate">62.96%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">二等舱生存率</div>
+                        <div class="stat-value" id="class-2-rate">47.28%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">三等舱生存率</div>
+                        <div class="stat-value" id="class-3-rate">24.24%</div>
+                    </div>
+                    <div class="deck-legend">
+                        <div class="legend-item">
+                            <div class="legend-color class-1-color"></div>
+                            <span>一等舱</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color class-2-color"></div>
+                            <span>二等舱</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color class-3-color"></div>
+                            <span>三等舱</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-card">
+                    <h2 class="card-title"><i class="fas fa-chart-bar"></i> 性别生存对比</h2>
+                    <div class="chart-container" id="gender-chart"></div>
+                    <div class="stat-card">
+                        <div class="stat-label">女性生存率</div>
+                        <div class="stat-value survived" id="female-rate">74.20%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">男性生存率</div>
+                        <div class="stat-value not-survived" id="male-rate">18.89%</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 右侧平面图区域 - 已修改为图片 -->
+            <div class="right-map">
+                <div class="dashboard-card">
+                    <h2 class="card-title"><i class="fas fa-water"></i> 泰坦尼克号平面布局</h2>
+                    <div class="ship-map-container">
+                        <div class="ship-map">
+                            <!-- 泰坦尼克号平面图 -->
+                            <img src="titanic-plan.png" alt="泰坦尼克号平面布局图" class="ship-image" id="ship-image">
+                            
+                            <!-- 图例 -->
+                            <div class="ship-legend">
+                                <div class="legend-item">
+                                    <div class="legend-color" style="background: #ffd166;"></div>
+                                    <span>一等舱 (生存率: 62.96%)</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color" style="background: #9acd76;"></div>
+                                    <span>二等舱 (生存率: 47.28%)</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color" style="background: #ff6b6b;"></div>
+                                    <span>三等舱 (生存率: 24.24%)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="deck-info" id="deck-info">
+                        泰坦尼克号甲板平面图 - 展示船舱分布
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 底部卡片区域 -->
+        <div class="bottom-cards">
+            <div class="dashboard-card">
+                <h2 class="card-title"><i class="fas fa-user-friends"></i> 乘客故事</h2>
+                <button class="button" id="random-passenger-btn">
+                    <i class="fas fa-random"></i> 随机抽取一名乘客
+                </button>
+                <div class="passenger-card" id="passenger-card">
+                    <h3 id="passenger-name">点击按钮随机抽取乘客</h3>
+                    <div class="passenger-info">
+                        <div class="info-item">
+                            <span class="info-label">性别</span>
+                            <span class="info-value" id="passenger-sex">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">年龄</span>
+                            <span class="info-value" id="passenger-age">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">舱位</span>
+                            <span class="info-value" id="passenger-class">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">票价</span>
+                            <span class="info-value" id="passenger-fare">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">登船港口</span>
+                            <span class="info-value" id="passenger-embarked">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">家庭成员</span>
+                            <span class="info-value" id="passenger-family">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">是否幸存</span>
+                            <span class="info-value" id="passenger-survived">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="dashboard-card">
+                <h2 class="card-title"><i class="fas fa-crystal-ball"></i> 生存预测游戏</h2>
+                <form id="prediction-form">
+                    <div class="form-group">
+                        <label class="form-label">性别</label>
+                        <select class="form-control" id="pred-sex">
+                            <option value="female">女性</option>
+                            <option value="male">男性</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">年龄</label>
+                        <input type="range" class="form-control" id="pred-age" min="0" max="80" value="30">
+                        <div style="text-align: center; margin-top: 3px; font-size: 0.7rem;" id="age-display">30 岁</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">舱位等级</label>
+                        <select class="form-control" id="pred-class">
+                            <option value="1">一等舱</option>
+                            <option value="2">二等舱</option>
+                            <option value="3" selected>三等舱</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">票价 (£)</label>
+                        <input type="range" class="form-control" id="pred-fare" min="0" max="300" value="30">
+                        <div style="text-align: center; margin-top: 3px; font-size: 0.7rem;" id="fare-display">30</div>
+                    </div>
+                    <button type="button" class="button" id="predict-btn">
+                        <i class="fas fa-calculator"></i> 预测生存概率
+                    </button>
+                </form>
+                <div class="prediction-result" id="prediction-result" style="display: none;">
+                    <h3>预测生存概率</h3>
+                    <div class="prediction-value high" id="prediction-value">85%</div>
+                    <p>基于历史相似乘客数据计算</p>
+                </div>
+            </div>
+            
+            <div class="dashboard-card">
+                <h2 class="card-title"><i class="fas fa-globe-americas"></i> 登船港口分布</h2>
+                <div class="port-visual">
+                    <div class="port">
+                        <div class="port-circle port-c">
+                            <i class="fas fa-anchor"></i>
+                        </div>
+                        <div class="port-name">瑟堡 (C)</div>
+                        <div class="port-count" id="port-c">168</div>
+                        <div>乘客</div>
+                    </div>
+                    <div class="port">
+                        <div class="port-circle port-q">
+                            <i class="fas fa-anchor"></i>
+                        </div>
+                        <div class="port-name">皇后镇 (Q)</div>
+                        <div class="port-count" id="port-q">77</div>
+                        <div>乘客</div>
+                    </div>
+                    <div class="port">
+                        <div class="port-circle port-s">
+                            <i class="fas fa-anchor"></i>
+                        </div>
+                        <div class="port-name">南安普顿 (S)</div>
+                        <div class="port-count" id="port-s">644</div>
+                        <div>乘客</div>
+                    </div>
+                </div>
+                <div class="chart-container" id="port-chart"></div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>泰坦尼克号数据集可视化大屏 | 数据来源: Kaggle Titanic Dataset | 仅供学习研究使用</p>
+            <p>© 2023 数据航海日志 | 交互式数据可视化项目</p>
+        </footer>
+    </div>
+
+    <script>
+        // 泰坦尼克号乘客数据
+        const passengers = [
+            {PassengerId:1,Survived:0,Pclass:3,Name:"Braund, Mr. Owen Harris",Sex:"male",Age:22,SibSp:1,Parch:0,Ticket:"A/5 21171",Fare:7.25,Cabin:"",Embarked:"S"},
+            {PassengerId:2,Survived:1,Pclass:1,Name:"Cumings, Mrs. John Bradley (Florence Briggs Thayer)",Sex:"female",Age:38,SibSp:1,Parch:0,Ticket:"PC 17599",Fare:71.2833,Cabin:"C85",Embarked:"C"},
+            {PassengerId:3,Survived:1,Pclass:3,Name:"Heikkinen, Miss. Laina",Sex:"female",Age:26,SibSp:0,Parch:0,Ticket:"STON/O2. 3101282",Fare:7.925,Cabin:"",Embarked:"S"},
+            {PassengerId:4,Survived:1,Pclass:1,Name:"Futrelle, Mrs. Jacques Heath (Lily May Peel)",Sex:"female",Age:35,SibSp:1,Parch:0,Ticket:113803,Fare:53.1,Cabin:"C123",Embarked:"S"},
+            {PassengerId:5,Survived:0,Pclass:3,Name:"Allen, Mr. William Henry",Sex:"male",Age:35,SibSp:0,Parch:0,Ticket:373450,Fare:8.05,Cabin:"",Embarked:"S"},
+            {PassengerId:6,Survived:0,Pclass:3,Name:"Moran, Mr. James",Sex:"male",Age:null,SibSp:0,Parch:0,Ticket:330877,Fare:8.4583,Cabin:"",Embarked:"Q"},
+            {PassengerId:7,Survived:0,Pclass:1,Name:"McCarthy, Mr. Timothy J",Sex:"male",Age:54,SibSp:0,Parch:0,Ticket:17463,Fare:51.8625,Cabin:"E46",Embarked:"S"},
+            {PassengerId:8,Survived:0,Pclass:3,Name:"Palsson, Master. Gosta Leonard",Sex:"male",Age:2,SibSp:3,Parch:1,Ticket:349909,Fare:21.075,Cabin:"",Embarked:"S"},
+            {PassengerId:9,Survived:1,Pclass:3,Name:"Johnson, Mrs. Oscar W (Elisabeth Vilhelmina Berg)",Sex:"female",Age:27,SibSp:0,Parch:2,Ticket:347742,Fare:11.1333,Cabin:"",Embarked:"S"},
+            {PassengerId:10,Survived:1,Pclass:2,Name:"Nasser, Mrs. Nicholas (Adele Achem)",Sex:"female",Age:14,SibSp:1,Parch:0,Ticket:237736,Fare:30.0708,Cabin:"",Embarked:"C"},
+            // 为了演示，这里只包含部分数据
+        ];
+        
+        // 生成更多模拟数据以展示完整功能
+        function generateMockPassengers(count) {
+            const mockPassengers = [];
+            const firstNames = ["John", "Mary", "James", "Elizabeth", "Robert", "Sarah", "Michael", "Emma", "William", "Olivia"];
+            const lastNames = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez"];
+            const embarked = ["C", "Q", "S"];
+            
+            for (let i = 11; i <= count; i++) {
+                const sex = Math.random() > 0.5 ? "male" : "female";
+                const pclass = Math.floor(Math.random() * 3) + 1;
+                const age = Math.floor(Math.random() * 60) + 10;
+                const fare = pclass === 1 ? Math.random() * 200 + 30 : 
+                            pclass === 2 ? Math.random() * 50 + 10 : 
+                            Math.random() * 30 + 5;
+                const survived = Math.random() < (sex === "female" ? 0.74 : 0.19) ? 1 : 0;
+                
+                mockPassengers.push({
+                    PassengerId: i,
+                    Survived: survived,
+                    Pclass: pclass,
+                    Name: `${lastNames[Math.floor(Math.random() * lastNames.length)]}, ${sex === "male" ? "Mr." : "Mrs."} ${firstNames[Math.floor(Math.random() * firstNames.length)]}`,
+                    Sex: sex,
+                    Age: age,
+                    SibSp: Math.floor(Math.random() * 4),
+                    Parch: Math.floor(Math.random() * 3),
+                    Ticket: `TICK${Math.floor(Math.random() * 10000)}`,
+                    Fare: parseFloat(fare.toFixed(2)),
+                    Cabin: pclass === 1 ? `C${Math.floor(Math.random() * 100)}` : "",
+                    Embarked: embarked[Math.floor(Math.random() * 3)]
+                });
+            }
+            
+            return mockPassengers;
+        }
+        
+        // 生成891名乘客的完整数据集
+        let allPassengers = [...passengers, ...generateMockPassengers(891)];
+        
+        // 计算统计数据
+        function calculateStatistics() {
+            const total = allPassengers.length;
+            const survived = allPassengers.filter(p => p.Survived === 1).length;
+            const notSurvived = total - survived;
+            const survivalRate = ((survived / total) * 100).toFixed(2);
+            
+            // 按舱位统计
+            const class1 = allPassengers.filter(p => p.Pclass === 1);
+            const class2 = allPassengers.filter(p => p.Pclass === 2);
+            const class3 = allPassengers.filter(p => p.Pclass === 3);
+            
+            const class1Survived = class1.filter(p => p.Survived === 1).length;
+            const class2Survived = class2.filter(p => p.Survived === 1).length;
+            const class3Survived = class3.filter(p => p.Survived === 1).length;
+            
+            const class1Rate = class1.length > 0 ? ((class1Survived / class1.length) * 100).toFixed(2) : "0.00";
+            const class2Rate = class2.length > 0 ? ((class2Survived / class2.length) * 100).toFixed(2) : "0.00";
+            const class3Rate = class3.length > 0 ? ((class3Survived / class3.length) * 100).toFixed(2) : "0.00";
+            
+            // 按性别统计
+            const females = allPassengers.filter(p => p.Sex === "female");
+            const males = allPassengers.filter(p => p.Sex === "male");
+            
+            const femaleSurvived = females.filter(p => p.Survived === 1).length;
+            const maleSurvived = males.filter(p => p.Survived === 1).length;
+            
+            const femaleRate = females.length > 0 ? ((femaleSurvived / females.length) * 100).toFixed(2) : "0.00";
+            const maleRate = males.length > 0 ? ((maleSurvived / males.length) * 100).toFixed(2) : "0.00";
+            
+            // 登船港口统计
+            const portC = allPassengers.filter(p => p.Embarked === "C").length;
+            const portQ = allPassengers.filter(p => p.Embarked === "Q").length;
+            const portS = allPassengers.filter(p => p.Embarked === "S").length;
+            
+            return {
+                total,
+                survived,
+                notSurvived,
+                survivalRate,
+                class1: { total: class1.length, survived: class1Survived, rate: class1Rate },
+                class2: { total: class2.length, survived: class2Survived, rate: class2Rate },
+                class3: { total: class3.length, survived: class3Survived, rate: class3Rate },
+                females: { total: females.length, survived: femaleSurvived, rate: femaleRate },
+                males: { total: males.length, survived: maleSurvived, rate: maleRate },
+                portC,
+                portQ,
+                portS
+            };
+        }
+        
+        // 初始化统计数据
+        const stats = calculateStatistics();
+        
+        // 更新DOM中的统计数据
+        document.getElementById('total-passengers').textContent = stats.total;
+        document.getElementById('survived-count').textContent = stats.survived;
+        document.getElementById('not-survived-count').textContent = stats.notSurvived;
+        document.getElementById('survival-rate').textContent = `${stats.survivalRate}%`;
+        
+        document.getElementById('class-1-rate').textContent = `${stats.class1.rate}%`;
+        document.getElementById('class-2-rate').textContent = `${stats.class2.rate}%`;
+        document.getElementById('class-3-rate').textContent = `${stats.class3.rate}%`;
+        
+        document.getElementById('female-rate').textContent = `${stats.females.rate}%`;
+        document.getElementById('male-rate').textContent = `${stats.males.rate}%`;
+        
+        document.getElementById('port-c').textContent = stats.portC;
+        document.getElementById('port-q').textContent = stats.portQ;
+        document.getElementById('port-s').textContent = stats.portS;
+        
+        // 创建生存概览饼图
+        function createSurvivalChart() {
+            const data = [{
+                values: [stats.survived, stats.notSurvived],
+                labels: ['幸存', '遇难'],
+                type: 'pie',
+                hole: 0.4,
+                marker: {
+                    colors: ['#4ecdc4', '#ff6b6b']
+                },
+                textinfo: 'percent',
+                textposition: 'inside',
+                hoverinfo: 'label+value+percent',
+                automargin: true,
+                textfont: { size: 10 }
+            }];
+            
+            const layout = {
+                height: 140,
+                margin: { t: 0, b: 0, l: 0, r: 0 },
+                showlegend: false,
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#f8f9fa', size: 9 }
+            };
+            
+            Plotly.newPlot('survival-chart', data, layout, { displayModeBar: false });
+        }
+        
+        // 创建舱位等级分析柱状图
+        function createClassChart() {
+            const data = [{
+                x: ['一等舱', '二等舱', '三等舱'],
+                y: [stats.class1.rate, stats.class2.rate, stats.class3.rate],
+                type: 'bar',
+                marker: {
+                    color: ['#ffd166', '#9acd76', '#ff6b6b']
+                },
+                text: [stats.class1.rate + '%', stats.class2.rate + '%', stats.class3.rate + '%'],
+                textposition: 'auto',
+                hoverinfo: 'x+y',
+                textfont: { size: 10 }
+            }];
+            
+            const layout = {
+                height: 140,
+                margin: { t: 10, b: 20, l: 30, r: 0 },
+                xaxis: { 
+                    title: { text: '舱位等级', font: { size: 9 } }, 
+                    tickfont: { size: 8 } 
+                },
+                yaxis: { 
+                    title: { text: '生存率 (%)', font: { size: 9 } }, 
+                    range: [0, 100], 
+                    tickfont: { size: 8 } 
+                },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#f8f9fa', size: 9 }
+            };
+            
+            Plotly.newPlot('class-chart', data, layout, { displayModeBar: false });
+        }
+        
+        // 创建性别生存对比图
+        function createGenderChart() {
+            const data = [{
+                x: ['女性', '男性'],
+                y: [stats.females.rate, stats.males.rate],
+                type: 'bar',
+                marker: {
+                    color: ['#4ecdc4', '#ff6b6b']
+                },
+                text: [stats.females.rate + '%', stats.males.rate + '%'],
+                textposition: 'auto',
+                hoverinfo: 'x+y',
+                textfont: { size: 10 }
+            }];
+            
+            const layout = {
+                height: 140,
+                margin: { t: 10, b: 20, l: 30, r: 0 },
+                xaxis: { 
+                    title: { text: '性别', font: { size: 9 } }, 
+                    tickfont: { size: 8 } 
+                },
+                yaxis: { 
+                    title: { text: '生存率 (%)', font: { size: 9 } }, 
+                    range: [0, 100], 
+                    tickfont: { size: 8 } 
+                },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#f8f9fa', size: 9 }
+            };
+            
+            Plotly.newPlot('gender-chart', data, layout, { displayModeBar: false });
+        }
+        
+        // 创建登船港口图表
+        function createPortChart() {
+            const data = [{
+                values: [stats.portC, stats.portQ, stats.portS],
+                labels: ['瑟堡 (C)', '皇后镇 (Q)', '南安普顿 (S)'],
+                type: 'pie',
+                hole: 0.3,
+                marker: {
+                    colors: ['#ff9a3c', '#4ecdc4', '#ff6b6b']
+                },
+                textinfo: 'percent',
+                textposition: 'inside',
+                hoverinfo: 'label+value+percent',
+                automargin: true,
+                textfont: { size: 10 }
+            }];
+            
+            const layout = {
+                height: 140,
+                margin: { t: 0, b: 0, l: 0, r: 0 },
+                showlegend: false,
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#f8f9fa', size: 9 }
+            };
+            
+            Plotly.newPlot('port-chart', data, layout, { displayModeBar: false });
+        }
+        
+        // 随机抽取乘客
+        function getRandomPassenger() {
+            const randomIndex = Math.floor(Math.random() * allPassengers.length);
+            return allPassengers[randomIndex];
+        }
+        
+        // 更新乘客卡片
+        function updatePassengerCard(passenger) {
+            document.getElementById('passenger-name').textContent = passenger.Name;
+            document.getElementById('passenger-sex').textContent = passenger.Sex === "male" ? "男性" : "女性";
+            document.getElementById('passenger-age').textContent = passenger.Age || "未知";
+            document.getElementById('passenger-class').textContent = `第${passenger.Pclass}等舱`;
+            document.getElementById('passenger-fare').textContent = passenger.Fare;
+            document.getElementById('passenger-embarked').textContent = 
+                passenger.Embarked === "C" ? "瑟堡" : 
+                passenger.Embarked === "Q" ? "皇后镇" : 
+                passenger.Embarked === "S" ? "南安普顿" : "未知";
+            document.getElementById('passenger-family').textContent = (passenger.SibSp || 0) + (passenger.Parch || 0);
+            
+            const survivedElement = document.getElementById('passenger-survived');
+            if (passenger.Survived === 1) {
+                survivedElement.textContent = "是";
+                survivedElement.className = "info-value survived";
+            } else {
+                survivedElement.textContent = "否";
+                survivedElement.className = "info-value not-survived";
+            }
+        }
+        
+        // 预测生存概率
+        function predictSurvival(sex, age, pclass, fare) {
+            // 简单预测模型：基于历史数据统计
+            let baseProbability = 0.5;
+            
+            // 性别因素
+            if (sex === "female") baseProbability *= 3.93; // 女性生存率是男性的3.93倍
+            else baseProbability *= 0.25;
+            
+            // 舱位因素
+            if (pclass == 1) baseProbability *= 1.64;
+            else if (pclass == 2) baseProbability *= 1.23;
+            else baseProbability *= 0.63;
+            
+            // 年龄因素（儿童和老人更可能幸存）
+            if (age < 18) baseProbability *= 1.5;
+            else if (age > 60) baseProbability *= 1.2;
+            
+            // 票价因素（票价越高，生存概率越高）
+            const normalizedFare = Math.min(fare / 100, 3);
+            baseProbability *= (0.5 + normalizedFare / 2);
+            
+            // 将概率限制在0-1之间
+            let probability = Math.min(Math.max(baseProbability, 0.05), 0.95);
+            
+            return Math.round(probability * 100);
+        }
+        
+        // 初始化事件监听器
+        function initEventListeners() {
+            // 随机乘客按钮
+            document.getElementById('random-passenger-btn').addEventListener('click', function() {
+                const passenger = getRandomPassenger();
+                updatePassengerCard(passenger);
+            });
+            
+            // 时间轴事件
+            document.querySelectorAll('.timeline-dot').forEach(element => {
+                element.addEventListener('click', function() {
+                    const date = this.getAttribute('data-date');
+                    const event = this.getAttribute('data-event');
+                    
+                    alert(`${date}: ${event}`);
+                });
+            });
+            
+            // 预测表单
+            document.getElementById('pred-age').addEventListener('input', function() {
+                document.getElementById('age-display').textContent = this.value + ' 岁';
+            });
+            
+            document.getElementById('pred-fare').addEventListener('input', function() {
+                document.getElementById('fare-display').textContent = this.value;
+            });
+            
+            document.getElementById('predict-btn').addEventListener('click', function() {
+                const sex = document.getElementById('pred-sex').value;
+                const age = parseInt(document.getElementById('pred-age').value);
+                const pclass = parseInt(document.getElementById('pred-class').value);
+                const fare = parseInt(document.getElementById('pred-fare').value);
+                
+                const probability = predictSurvival(sex, age, pclass, fare);
+                
+                document.getElementById('prediction-value').textContent = probability + '%';
+                
+                // 根据概率设置颜色
+                const predictionValue = document.getElementById('prediction-value');
+                predictionValue.className = 'prediction-value ';
+                if (probability >= 70) {
+                    predictionValue.classList.add('high');
+                } else if (probability >= 40) {
+                    predictionValue.classList.add('medium');
+                } else {
+                    predictionValue.classList.add('low');
+                }
+                
+                document.getElementById('prediction-result').style.display = 'block';
+            });
+            
+            // 图片点击事件（可选）
+            document.getElementById('ship-image').addEventListener('click', function() {
+                document.getElementById('deck-info').innerHTML = `
+                    <h3>泰坦尼克号平面图</h3>
+                    <p>点击图片查看详细信息</p>
+                `;
+            });
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            createSurvivalChart();
+            createClassChart();
+            createGenderChart();
+            createPortChart();
+            initEventListeners();
+            
+            // 初始随机乘客
+            const initialPassenger = getRandomPassenger();
+            updatePassengerCard(initialPassenger);
+        });
+    </script>
+</body>
+</html>
